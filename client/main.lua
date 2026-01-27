@@ -68,8 +68,9 @@ local function PlayAnimation(animInput)
         return false
     end
     
-    -- Get all animations in the dictionary
-    -- Since we can't enumerate animations, we'll try common animation names
+    -- Try common animation names since we can't easily enumerate all animations in a dictionary
+    -- Note: This is a limitation - not all animations may be detected
+    -- Users should refer to GTA V native animation lists for specific animation names
     local commonAnimNames = {
         'base', 'idle', 'idle_a', 'idle_b', 'idle_c',
         'enter', 'exit', 'clip', 'clipset', 'intro', 'outro'
@@ -78,10 +79,12 @@ local function PlayAnimation(animInput)
     local animToPlay = nil
     for _, animName in ipairs(commonAnimNames) do
         -- Try to play the animation
-        local success = pcall(function()
-            TaskPlayAnim(playerPed, dict, animName, 8.0, -8.0, -1, 1, 0, false, false, false)
-        end)
-        if success then
+        ClearPedTasks(playerPed)
+        TaskPlayAnim(playerPed, dict, animName, 8.0, -8.0, -1, 1, 0, false, false, false)
+        
+        -- Give it a moment and check if it's playing
+        Wait(100)
+        if IsEntityPlayingAnim(playerPed, dict, animName, 3) then
             animToPlay = animName
             break
         end
@@ -108,9 +111,18 @@ local function StopAnimation()
         ClearPedSecondaryTask(playerPed)
         
         -- Clear any attached props
-        local boneIndex = GetPedBoneIndex(playerPed, 57005) -- Right hand bone
-        if DoesEntityExist(GetEntityAttachedTo(playerPed)) then
-            DeleteEntity(GetEntityAttachedTo(playerPed))
+        -- Check for props attached to common bone indices
+        local boneIndices = {
+            57005, -- Right hand (BONETAG_R_PH_HAND)
+            18905, -- Left hand (BONETAG_L_PH_HAND)
+            28422  -- Head (BONETAG_HEAD)
+        }
+        
+        for _, boneIndex in ipairs(boneIndices) do
+            local attachedEntity = GetEntityAttachedTo(playerPed)
+            if attachedEntity ~= 0 and DoesEntityExist(attachedEntity) then
+                DeleteEntity(attachedEntity)
+            end
         end
         
         isPlayingAnimation = false
